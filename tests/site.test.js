@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const pages = ['index.html', 'en/index.html'];
+const pages = ['index.html', 'en/index.html', 'privacy.html', 'en/privacy.html'];
 const read = (p) => readFileSync(join(root, p), 'utf8');
 const links = (html) => [...html.matchAll(/\s(?:href|src)="([^"]*)"/g)].map((m) => m[1]);
 
@@ -33,6 +33,12 @@ for (const page of pages) {
     assert.match(html, /hreflang="en" href="https:\/\//);
     assert.match(html, /og:image" content="https:\/\//);
   });
+
+  test(`${page}: links to the privacy policy`, () => {
+    assert.match(read(page), /<a class="foot-link" href="privacy\.html">/);
+  });
+
+  if (!page.endsWith('index.html')) continue;
 
   test(`${page}: download buttons work without JavaScript`, () => {
     const buttons = [...read(page).matchAll(/<a [^>]*data-download[^>]*>/g)].map((m) => m[0]);

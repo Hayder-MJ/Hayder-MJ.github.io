@@ -10,4 +10,14 @@
     <xhtml:link rel="alternate" hreflang="ar" href="https://hayder-mj.github.io/"/>
     <xhtml:link rel="alternate" hreflang="en" href="https://hayder-mj.github.io/en/"/>
   </url>
+  <url>
+    <loc>https://hayder-mj.github.io/privacy.html</loc>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://hayder-mj.github.io/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://hayder-mj.github.io/en/privacy.html"/>
+  </url>
+  <url>
+    <loc>https://hayder-mj.github.io/en/privacy.html</loc>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://hayder-mj.github.io/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://hayder-mj.github.io/en/privacy.html"/>
+  </url>
 </urlset>
