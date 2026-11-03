@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const pages = ['index.html', 'en/index.html', 'privacy.html', 'en/privacy.html'];
+const pages = ['index.html', 'en/index.html', 'privacy.html', 'en/privacy.html', 'terms.html', 'en/terms.html'];
 const read = (p) => readFileSync(join(root, p), 'utf8');
 const links = (html) => [...html.matchAll(/\s(?:href|src)="([^"]*)"/g)].map((m) => m[1]);
 
@@ -34,8 +34,9 @@ for (const page of pages) {
     assert.match(html, /og:image" content="https:\/\//);
   });
 
-  test(`${page}: links to the privacy policy`, () => {
+  test(`${page}: links to the privacy policy and the terms of sale`, () => {
     assert.match(read(page), /<a class="foot-link" href="privacy\.html">/);
+    assert.match(read(page), /<a class="foot-link" href="terms\.html">/);
   });
 
   if (!page.endsWith('index.html')) continue;
