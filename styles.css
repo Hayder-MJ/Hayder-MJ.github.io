@@ -234,9 +234,9 @@ html[lang="ar"] h2 { letter-spacing: 0; line-height: 1.3; }
 .tile.a-navy { --accent: var(--navy);  --tint: #dde6f2; }
 .tile h3 { margin: 16px 0 6px; font-size: 22px; color: var(--navy); line-height: 1.35; }
 .tile p { margin: 0; color: var(--muted); font-size: 16px; }
-.span-4 { grid-column: span 4; } .span-3 { grid-column: span 3; } .span-2 { grid-column: span 2; }
-@media (max-width: 980px) { .tiles { grid-template-columns: repeat(2, 1fr); } .span-4, .span-3 { grid-column: span 2; } .span-2 { grid-column: span 1; } }
-@media (max-width: 620px) { .tiles { grid-template-columns: 1fr; } .span-4, .span-3, .span-2 { grid-column: span 1; } }
+.span-6 { grid-column: span 6; } .span-4 { grid-column: span 4; } .span-3 { grid-column: span 3; } .span-2 { grid-column: span 2; }
+@media (max-width: 980px) { .tiles { grid-template-columns: repeat(2, 1fr); } .span-6, .span-4, .span-3 { grid-column: span 2; } .span-2 { grid-column: span 1; } }
+@media (max-width: 620px) { .tiles { grid-template-columns: 1fr; } .span-6, .span-4, .span-3, .span-2 { grid-column: span 1; } }
 .icon {
   width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; flex: none;
   background: linear-gradient(135deg, var(--tint), #fff); color: var(--accent); border: 1px solid var(--tint);
@@ -254,7 +254,24 @@ html[lang="ar"] h2 { letter-spacing: 0; line-height: 1.3; }
 }
 .pic-first .stock-shot { padding: 30px 22px 34px; background: var(--soft); }
 .pic-first .stock-shot::after { display: none; }
+.pic-first .stock-shot { flex: 1; display: flex; flex-direction: column; justify-content: center; } /* the list panel takes any extra height, not the caption */
+.pic-first .stock-shot + .cap { flex: none; }
 .pic-first .stock-shot .stock { margin: 0; background: #fff; box-shadow: var(--shadow); }
+/* Phones: a text card puts its icon beside the title, so it takes less height. */
+@media (max-width: 620px) {
+  .tiles .tile:not(.pic-first) { display: grid; grid-template-columns: auto 1fr; column-gap: 14px; align-items: center; padding: 22px; }
+  .tiles .tile:not(.pic-first) .icon { margin: 0; }
+  .tiles .tile:not(.pic-first) h3 { margin: 0; }
+  .tiles .tile:not(.pic-first) p { grid-column: 1 / -1; margin: 10px 0 0; }
+  .pic-first .stock-shot { padding: 20px 16px 22px; }
+}
+/* The wide shadow card: the chart beside its caption on wide screens, stacked on narrow ones. */
+@media (min-width: 981px) {
+  .pic-first.wide { flex-direction: row; }
+  .pic-first.wide .shot { flex: 0 0 58%; }
+  .pic-first.wide .shot::after { display: none; }
+  .pic-first.wide .cap { justify-content: center; padding: 32px 36px; }
+}
 .pic-first .cap { flex: 1; display: flex; flex-direction: column; padding: 20px 24px 24px; background: linear-gradient(180deg, var(--navy) 0%, var(--navy-2) 100%); }
 .pic-first .cap h3 { color: #fff; margin: 0 0 6px; }
 .pic-first .cap p { color: #d3e0ef; }
@@ -282,7 +299,7 @@ html[lang="ar"] h2 { letter-spacing: 0; line-height: 1.3; }
 /* ---------- printed quotes: the two customer quotes large, side by side; the work order beside them ---------- */
 .papers { display: grid; gap: 30px; grid-template-columns: 1fr 1fr .72fr; align-items: end; }
 @media (max-width: 900px) { .papers { grid-template-columns: 1fr 1fr; } .paper.small { grid-column: 1 / -1; max-width: 340px; margin-inline: auto; } }
-@media (max-width: 560px) { .papers { grid-template-columns: 1fr; max-width: 420px; margin: 0 auto; } }
+@media (max-width: 560px) { .papers { gap: 26px 16px; } .paper.small { max-width: 220px; } } /* phones: the two quotes side by side, the work order smaller below */
 .paper { margin: 0; }
 .paper img { border-radius: 10px; box-shadow: 0 30px 70px rgba(0,0,0,.45); background: #fff; outline: 1px solid rgba(255,255,255,.25); }
 .paper.big img { outline: 3px solid rgba(255, 199, 44, .55); outline-offset: 4px; }
@@ -291,7 +308,7 @@ html[lang="ar"] h2 { letter-spacing: 0; line-height: 1.3; }
 
 /* ---------- steps ---------- */
 .steps { counter-reset: s; display: grid; gap: 24px; grid-template-columns: repeat(3, 1fr); }
-@media (max-width: 860px) { .steps { grid-template-columns: 1fr; } }
+@media (max-width: 860px) { .steps { grid-template-columns: 1fr; gap: 18px; } .step { padding: 22px; } }
 .step { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; position: relative; box-shadow: var(--shadow); }
 .step::before {
   counter-increment: s; content: counter(s); width: 48px; height: 48px; border-radius: 14px; background: var(--navy); color: var(--sun);
