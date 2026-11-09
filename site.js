@@ -55,6 +55,59 @@ const SITE = {
       .catch(() => {});
   }
 
+  // ---- Motion: soft fades on scroll, facts that count up once, and the phone's sticky download button. ----
+  // Everything here is skipped when the browser can't watch the page or the visitor asked for less motion;
+  // the page is then complete and still, with the real numbers already written in the HTML.
+  const watch = window.IntersectionObserver;
+  const still = !window.matchMedia || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const root = document.documentElement;
+
+  const sticky = document.querySelector("[data-sticky]");
+  const hero = document.querySelector(".hero");
+  const cta = document.querySelector(".cta");
+  if (sticky && hero && cta && watch) {
+    // Shown once the hero has scrolled away, hidden again when the last band (or anything after it) is on screen.
+    let pastHero = false, atEnd = false;
+    const update = () => sticky.classList.toggle("show", pastHero && !atEnd);
+    new watch(([e]) => { pastHero = !e.isIntersecting && e.boundingClientRect.top < 0; update(); }).observe(hero);
+    new watch(([e]) => { atEnd = e.isIntersecting || e.boundingClientRect.top < 0; update(); }).observe(cta);
+  }
+
+  if (watch && !still && root && root.classList) {
+    root.classList.add("js-motion");
+    // A part is hidden only once the browser has said it is off screen, so if this never runs, nothing stays hidden.
+    const seen = new watch((entries) => {
+      entries.forEach((e) => {
+        if (!e.isIntersecting) { e.target.classList.add("reveal"); return; }
+        e.target.classList.add("in");
+        seen.unobserve(e.target);
+      });
+    });
+    document.querySelectorAll(".center, .split > div, .tile, .paper, .step, .price-box, .faq, .cta .wrap").forEach((el) => seen.observe(el));
+
+    // The facts count up from 0 the first time they come into view, then stay put.
+    // A number is set to 0 only while it is fully off screen, and counts up once it is well in view.
+    const counting = new watch((entries) => {
+      entries.forEach((e) => {
+        const el = e.target;
+        if (!el.dataset.armed) {
+          if (e.intersectionRatio === 0) { el.dataset.armed = "1"; el.textContent = "0"; } else counting.unobserve(el);
+          return;
+        }
+        if (e.intersectionRatio < 0.6) return;
+        counting.unobserve(el);
+        const end = Number(e.target.dataset.count), start = performance.now(), ms = 900;
+        const step = (now) => {
+          const t = Math.min(1, (now - start) / ms);
+          e.target.textContent = String(Math.round(end * (1 - Math.pow(1 - t, 3))));
+          if (t < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      });
+    }, { threshold: [0, 0.6] });
+    document.querySelectorAll("[data-count]").forEach((el) => counting.observe(el));
+  }
+
   function installerOf(release) {
     const allowed = `https://github.com/${SITE.releases}/releases/download/`;
     const asset = ((release && release.assets) || []).find((a) => /^SolarSizer-Setup-\d+\.\d+\.\d+\.exe$/i.test(a.name));
