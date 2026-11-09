@@ -84,6 +84,52 @@ test('download button keeps the release page when nothing is published', async (
   assert.equal(await downloadLinkFor(null), 'release-page');
 });
 
+test('the "new" band names the same version as SITE.version in site.js', () => {
+  const version = read('site.js').match(/^\s*version: "(\d+\.\d+\.\d+)",/m)?.[1];
+  assert.ok(version, 'SITE.version is missing');
+  for (const page of ['index.html', 'en/index.html']) {
+    const shown = [...read(page).matchAll(/data-version>([^<]*)</g)].map((m) => m[1]);
+    assert.ok(shown.length >= 2, `${page} has no version in its band`);
+    assert.deepEqual([...new Set(shown)], [version], page);
+  }
+});
+
+// Runs site.js with the given WhatsApp number against a fake page holding the sticky button and one WhatsApp tile.
+function whatsappWith(number) {
+  const tile = { hidden: true, href: '' };
+  const made = [];
+  const sticky = { after: (el) => made.push(el) };
+  const document = {
+    documentElement: { lang: 'en' },
+    querySelectorAll: (sel) => (sel === '[data-wa]' ? [tile] : []),
+    querySelector: (sel) => (sel === '[data-sticky]' ? sticky : null),
+    createElement: () => ({ setAttribute() {}, classList: { toggle() {} } }),
+  };
+  const source = read('site.js').replace(/^(\s*whatsapp: )"[^"]*",/m, (_, k) => `${k}${JSON.stringify(number)},`);
+  assert.ok(source.includes(`whatsapp: ${JSON.stringify(number)},`));
+  vm.runInNewContext(source, { document, window: {}, encodeURIComponent });
+  return { tile, made };
+}
+
+test('no WhatsApp button or tile when SITE.whatsapp is empty', () => {
+  const { tile, made } = whatsappWith('');
+  assert.equal(tile.hidden, true);
+  assert.equal(tile.href, '');
+  assert.deepEqual(made, []);
+});
+
+test('the WhatsApp tile and round button open wa.me in a new tab', () => {
+  const { tile, made } = whatsappWith('9647000000000');
+  assert.equal(tile.hidden, false);
+  assert.match(tile.href, /^https:\/\/wa\.me\/9647000000000\?text=/);
+  assert.equal(tile.target, '_blank');
+  assert.equal(tile.rel, 'noopener');
+  assert.equal(made.length, 1);
+  assert.equal(made[0].href, tile.href);
+  assert.equal(made[0].target, '_blank');
+  assert.equal(made[0].rel, 'noopener');
+});
+
 test('robots.txt and sitemap.xml list the site', () => {
   assert.match(read('robots.txt'), /Sitemap: https:\/\/.+\/sitemap\.xml/);
   assert.match(read('sitemap.xml'), /<loc>https:\/\/.+\/en\/<\/loc>/);
