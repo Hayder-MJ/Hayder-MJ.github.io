@@ -18,6 +18,7 @@
   --ok-bg: #e7f4e8;
   --low-bg: #fff5d6;
   --owed-bg: #fde3e3;
+  --sun-tint: #fff8e6;
   --radius: 18px;
   --shadow: 0 1px 2px rgba(13, 51, 100, .06), 0 12px 32px rgba(13, 51, 100, .09);
   --shadow-up: 0 2px 4px rgba(13, 51, 100, .06), 0 22px 48px rgba(13, 51, 100, .16);
@@ -306,7 +307,59 @@ html[lang="ar"] h2 { letter-spacing: 0; line-height: 1.3; }
 .paper figcaption { text-align: center; color: #e2ebf6; font-size: 16px; font-weight: 600; margin-top: 16px; }
 .paper.small figcaption { color: #b9cbe0; font-weight: 500; font-size: 15px; }
 
+/* ---------- photo band: five stock photos that slide, one at a time ---------- */
+/* Without JavaScript it is a row you can swipe or scroll (scroll-snap); site.js adds the buttons and the timer. */
+.photos .center h2 { margin-bottom: 36px; }
+.slider { max-width: 1040px; margin: 0 auto; }
+.slides {
+  display: flex; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain;
+  border-radius: var(--radius); box-shadow: var(--shadow-up); background: var(--navy-2);
+  scrollbar-width: none;
+}
+.slides::-webkit-scrollbar { display: none; }
+.slide { flex: 0 0 100%; margin: 0; position: relative; scroll-snap-align: start; aspect-ratio: 16 / 9; }
+.slide img { width: 100%; height: 100%; object-fit: cover; }
+.slide figcaption {
+  position: absolute; inset: auto 0 0; padding: 64px 28px 24px; color: #fff; font-weight: 600; font-size: clamp(17px, 2.1vw, 24px); line-height: 1.45;
+  background: linear-gradient(180deg, rgba(5, 26, 56, 0), rgba(5, 26, 56, .78) 55%, rgba(5, 26, 56, .9));
+  text-wrap: balance;
+}
+@media (max-width: 620px) {
+  .slide { aspect-ratio: auto; display: flex; flex-direction: column; background: var(--navy-2); }
+  .slide img { aspect-ratio: 4 / 3; height: auto; }
+  .slide figcaption { position: static; flex: 1; padding: 14px 18px 18px; background: var(--navy-2); font-size: 17px; }
+}
+.slider-nav { display: flex; align-items: center; gap: 10px; margin-top: 18px; }
+.slider-nav[hidden] { display: none; }
+.slider-nav .dots { display: flex; gap: 4px; margin-inline-end: auto; }
+.slider-nav .dots button {
+  width: 32px; height: 32px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; border-radius: 50%;
+}
+.slider-nav .dots button::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: #c4d2e2; transition: background-color .2s, width .2s; }
+.slider-nav .dots button[aria-current="true"]::before { background: var(--sun-3); width: 26px; border-radius: 6px; }
+.slider-nav .arrow {
+  width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--line); background: #fff; color: var(--navy);
+  display: grid; place-items: center; cursor: pointer; box-shadow: var(--shadow); padding: 0;
+}
+.slider-nav .arrow:hover { background: var(--soft); }
+.slider-nav .arrow svg { width: 22px; height: 22px; }
+html[dir="rtl"] .slider-nav .arrow:not([data-slider="pause"]) svg { transform: scaleX(-1); } /* in Arabic "next" points left */
+.slider-nav .i-play, .slider-nav .paused .i-pause { display: none; }
+.slider-nav .paused .i-play { display: block; }
+.slider-nav button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+
 /* ---------- steps ---------- */
+/* The steps sit on the roof photo, under a navy shade dark enough for white text. */
+section.on-photo {
+  color: #fff;
+  background:
+    linear-gradient(180deg, rgba(5, 26, 56, .9) 0%, rgba(8, 36, 74, .84) 50%, rgba(5, 26, 56, .92) 100%),
+    url("images/photo-roof.webp") center 40% / cover no-repeat, var(--navy-2);
+}
+.on-photo h2 { color: #fff; }
+.on-photo .sub { color: #d3e0ef; }
+.on-photo .kicker { color: var(--sun); }
+.on-photo .step::before { border-radius: 50%; background: var(--sun); color: var(--navy-4); }
 .steps { counter-reset: s; display: grid; gap: 24px; grid-template-columns: repeat(3, 1fr); }
 @media (max-width: 860px) { .steps { grid-template-columns: 1fr; gap: 18px; } .step { padding: 22px; } }
 .step { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; position: relative; box-shadow: var(--shadow); }
@@ -318,6 +371,12 @@ html[lang="ar"] h2 { letter-spacing: 0; line-height: 1.3; }
 .step p { margin: 0; color: var(--muted); }
 
 /* ---------- price ---------- */
+/* A warm sun glow behind the white price box. */
+section#price {
+  background:
+    radial-gradient(1000px 560px at 50% 50%, rgba(255, 199, 44, .55), rgba(255, 199, 44, .2) 50%, transparent 72%),
+    linear-gradient(180deg, var(--soft) 0%, var(--sun-tint) 100%);
+}
 .price-box { max-width: 620px; margin: 0 auto; background: #fff; border: 1px solid var(--line); border-radius: 24px; padding: 42px 36px; box-shadow: var(--shadow-up); text-align: center; position: relative; overflow: hidden; }
 .price-box::before { content: ""; position: absolute; inset: 0 0 auto; height: 8px; background: linear-gradient(90deg, var(--sun), var(--sun-3) 40%, var(--sky)); }
 .price-box .amount { font-size: clamp(30px, 4vw, 46px); font-weight: 700; color: var(--navy); margin: 8px 0 0; line-height: 1.25; }
@@ -327,6 +386,8 @@ html[lang="ar"] h2 { letter-spacing: 0; line-height: 1.3; }
 .note { font-size: 14px; color: var(--muted); margin: 18px 0 0; }
 
 /* ---------- questions ---------- */
+/* A pale sun tint instead of plain white, so the white question cards stand out. */
+section#questions { background: linear-gradient(180deg, var(--sun-tint) 0%, var(--soft) 100%); }
 .faq { max-width: 860px; margin: 0 auto; }
 details { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 16px 22px; margin-bottom: 12px; }
 details[open] { box-shadow: var(--shadow); border-color: #cddbea; }
@@ -376,6 +437,11 @@ details p { margin: 10px 0 0; color: var(--muted); }
 .helps .tile h3 { font-size: 19px; }
 .tile.a-ok { --accent: var(--ok); --tint: var(--ok-bg); }
 .tile.a-ok .icon { color: var(--ok); }
+/* Help tiles: the icon sits in a solid circle of the tile's own colour. */
+.helps .icon { border-radius: 50%; background: var(--accent); border-color: var(--accent); color: #fff; }
+.helps .tile.a-sun .icon { color: var(--navy-4); }
+.helps .tile.a-ok .icon { color: #fff; }
+.helps .tile::before { height: 6px; }
 a.tile { display: flex; flex-direction: column; color: inherit; text-decoration: none; }
 a.tile[hidden] { display: none; }
 a.tile .go { margin-top: auto; padding-top: 10px; color: var(--ok); font-weight: 700; }

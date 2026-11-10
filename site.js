@@ -133,6 +133,75 @@ const SITE = {
     document.querySelectorAll("[data-count]").forEach((el) => counting.observe(el));
   }
 
+  // ---- Photo band: moves on every 5.5 s, one photo at a time. ----
+  // It waits while the mouse is over it, while a button in it has keyboard focus, while it is off screen and while
+  // the tab is hidden. The pause button stops it until pressed again. With "reduce motion" it never moves by itself.
+  // Without JavaScript the buttons stay hidden and the photos still swipe (scroll-snap in the CSS).
+  const box = document.querySelector("[data-slider-box]");
+  const track = box && box.querySelector("[data-slider-track]");
+  const nav = box && box.querySelector("[data-slider-nav]");
+  if (track && nav && track.scrollBy) {
+    const slides = [...track.children];
+    const dots = [...nav.querySelectorAll('[data-slider="dot"]')];
+    const pauseButton = nav.querySelector('[data-slider="pause"]');
+    let current = 0, stopped = still, hovering = false, focused = false, onScreen = !watch, timer = 0;
+    nav.hidden = false;
+
+    // Which photo fills the box: the one whose middle is nearest the box's middle (works in both directions).
+    const shown = () => {
+      const r = track.getBoundingClientRect(), mid = r.left + r.width / 2;
+      let best = 0, bestD = Infinity;
+      slides.forEach((s, i) => { const q = s.getBoundingClientRect(); const d = Math.abs(q.left + q.width / 2 - mid); if (d < bestD) { bestD = d; best = i; } });
+      return best;
+    };
+    const mark = (i) => {
+      current = i;
+      dots.forEach((d, n) => { if (n === i) d.setAttribute("aria-current", "true"); else d.removeAttribute("aria-current"); });
+    };
+    // Scroll by the distance between the photo's start edge and the box's start edge, so the sign of
+    // scrollLeft (negative in right-to-left Chrome) never matters.
+    const go = (i) => {
+      i = (i + slides.length) % slides.length;
+      const r = track.getBoundingClientRect(), q = slides[i].getBoundingClientRect();
+      const left = getComputedStyle(track).direction === "rtl" ? q.right - r.right : q.left - r.left;
+      track.scrollBy({ left, behavior: still ? "auto" : "smooth" });
+      mark(i);
+    };
+    const playing = () => !stopped && !hovering && !focused && onScreen && !document.hidden;
+    const update = () => {
+      track.setAttribute("aria-live", stopped ? "polite" : "off");
+      clearInterval(timer);
+      if (playing()) timer = setInterval(() => go(current + 1), 5500);
+    };
+    const setStopped = (value) => {
+      stopped = value;
+      pauseButton.classList.toggle("paused", stopped);
+      pauseButton.setAttribute("aria-label", pauseButton.dataset[stopped ? "labelPlay" : "labelPause"]);
+      update();
+    };
+
+    nav.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-slider]");
+      if (!b) return;
+      const kind = b.dataset.slider;
+      if (kind === "pause") return setStopped(!stopped);
+      if (kind === "prev") go(current - 1);
+      else if (kind === "next") go(current + 1);
+      else if (kind === "dot") go(dots.indexOf(b));
+      update(); // a press starts the wait for the next move again
+    });
+    let settle = 0;
+    track.addEventListener("scroll", () => { clearTimeout(settle); settle = setTimeout(() => mark(shown()), 120); }, { passive: true });
+    box.addEventListener("mouseenter", () => { hovering = true; update(); });
+    box.addEventListener("mouseleave", () => { hovering = false; update(); });
+    box.addEventListener("focusin", () => { focused = true; update(); });
+    box.addEventListener("focusout", (e) => { if (!box.contains(e.relatedTarget)) { focused = false; update(); } });
+    document.addEventListener("visibilitychange", update);
+    if (watch) new watch(([e]) => { onScreen = e.isIntersecting; update(); }).observe(box);
+    mark(0);
+    setStopped(stopped);
+  }
+
   function installerOf(release) {
     const allowed = `https://github.com/${SITE.releases}/releases/download/`;
     const asset = ((release && release.assets) || []).find((a) => /^SolarSizer-Setup-\d+\.\d+\.\d+\.exe$/i.test(a.name));

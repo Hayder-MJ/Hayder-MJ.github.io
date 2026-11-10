@@ -2,7 +2,7 @@
 // with "/" (that would break when the site is opened from a folder), and the download wiring is safe.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
@@ -133,4 +133,19 @@ test('the WhatsApp tile and round button open wa.me in a new tab', () => {
 test('robots.txt and sitemap.xml list the site', () => {
   assert.match(read('robots.txt'), /Sitemap: https:\/\/.+\/sitemap\.xml/);
   assert.match(read('sitemap.xml'), /<loc>https:\/\/.+\/en\/<\/loc>/);
+});
+
+test('every file in images/ is listed in images/CREDITS.md', () => {
+  const credits = read('images/CREDITS.md');
+  const listed = new Set([...credits.matchAll(/^\| ([^|\s]+) \|/gm)].map((m) => m[1]));
+  const files = readdirSync(join(root, 'images')).filter((f) => f !== 'CREDITS.md');
+  assert.deepEqual(files.filter((f) => !listed.has(f)), []);
+  assert.deepEqual([...listed].filter((f) => f !== 'File' && !files.includes(f)), [], 'CREDITS.md lists a file that is gone');
+});
+
+test('the stock photos are each 150 KB or less', () => {
+  const big = readdirSync(join(root, 'images'))
+    .filter((f) => f.startsWith('photo-'))
+    .filter((f) => statSync(join(root, 'images', f)).size > 150 * 1024);
+  assert.deepEqual(big, []);
 });
