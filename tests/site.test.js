@@ -149,3 +149,21 @@ test('the stock photos are each 150 KB or less', () => {
     .filter((f) => statSync(join(root, 'images', f)).size > 150 * 1024);
   assert.deepEqual(big, []);
 });
+
+for (const page of pages) {
+  test(`${page}: every srcset file exists`, () => {
+    const files = [...read(page).matchAll(/\ssrcset="([^"]*)"/g)]
+      .flatMap((m) => m[1].split(',').map((c) => c.trim().split(/\s+/)[0]))
+      .map((f) => join(dirname(join(root, page)), f))
+      .filter((p) => !existsSync(p));
+    assert.deepEqual(files, []);
+  });
+}
+
+test('pictures shown on the pages are each 100 KB or less (smaller copies go in srcset)', () => {
+  const big = readdirSync(join(root, 'images'))
+    .filter((f) => /\.(webp|png|jpg)$/.test(f) && f !== 'screen-quote.jpg' && !f.startsWith('photo-'))
+    .filter((f) => statSync(join(root, 'images', f)).size > 100 * 1024);
+  assert.deepEqual(big, []);
+});
+
