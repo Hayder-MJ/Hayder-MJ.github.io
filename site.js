@@ -11,7 +11,7 @@ const SITE = {
   releases: "Hayder-MJ/solarsizer-updates",
   // The version the "new" band talks about. The band in both home pages writes it in its [data-version] spans;
   // a site test checks that they match this, so a new release changes this line and those spans together.
-  version: "2.12.3",
+  version: "2.12.4",
 };
 
 // ---- Page wiring (no need to change below) ----
@@ -40,6 +40,17 @@ const SITE = {
     if (SITE.whatsapp) parts.push(`<a href="https://wa.me/${SITE.whatsapp}" target="_blank" rel="noopener">WhatsApp <span class="ltr">+${SITE.whatsapp}</span></a>`);
     if (SITE.email) parts.push(`<a href="mailto:${SITE.email}">${SITE.email}</a>`);
     contact.innerHTML = parts.join(" · ") || say("Contact details coming soon.", "معلومات التواصل قريباً.");
+  }
+
+  // Only this number: someone posing as the seller from another number can't take the buyer's money.
+  if (SITE.whatsapp) {
+    const w = SITE.whatsapp;
+    const shown = w.length === 13 && w.startsWith("964") ? `+964 ${w.slice(3, 6)} ${w.slice(6, 9)} ${w.slice(9)}` : `+${w}`;
+    document.querySelectorAll("[data-only-number]").forEach((p) => {
+      p.innerHTML = say(`We only sell through WhatsApp <span class="ltr">${shown}</span>. Never pay anyone else.`,
+                        `نبيع فقط عبر واتساب <span class="ltr">${shown}</span>، ولا تدفع لأي رقم آخر.`);
+      p.hidden = false;
+    });
   }
 
   // WhatsApp: the help tile and a round button in the bottom corner, both from SITE.whatsapp. No number, no tile and no button.

@@ -381,6 +381,7 @@ section#price {
 .price-box::before { content: ""; position: absolute; inset: 0 0 auto; height: 8px; background: linear-gradient(90deg, var(--sun), var(--sun-3) 40%, var(--sky)); }
 .price-box .amount { font-size: clamp(30px, 4vw, 46px); font-weight: 700; color: var(--navy); margin: 8px 0 0; line-height: 1.25; }
 .price-box .per { color: var(--muted); margin: 4px 0 24px; }
+.price-box .only-number { font-size: 14px; color: var(--muted); margin: 0 0 16px; }
 .price-box .checks { text-align: start; margin: 0 0 28px; }
 .price-box .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .note { font-size: 14px; color: var(--muted); margin: 18px 0 0; }
