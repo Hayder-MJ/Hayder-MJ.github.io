@@ -75,10 +75,8 @@
     <div class="chips" id="monthChips"><button data-m="1">1</button><button data-m="3">3</button><button data-m="6">6</button><button data-m="12">12</button></div>
     <p id="period" class="muted"></p>
     <div id="renewal" class="note" hidden><span id="renewalText"></span> <button id="todayBtn" style="padding:4px 8px;margin-top:6px">Start today instead</button></div>
-    <div class="row">
-      <div><label for="price">Price per month, up to 3 users (IQD)</label><input id="price" inputmode="numeric"></div>
-      <div><label for="userPrice">Per extra user, per month (IQD)</label><input id="userPrice" inputmode="numeric"></div>
-    </div>
+    <label style="display:flex;gap:8px;align-items:center"><input id="receipt" type="checkbox" checked style="width:auto"> Make a receipt at the price list</label>
+
     <div id="total" class="total">–</div>
     <button id="makeBtn" class="primary">Make licence key</button>
     <p id="formMsg" class="muted" role="status"></p>
@@ -102,7 +100,6 @@ const show = (id) => { for (const s of ["login", "list", "form", "done"]) $(s).h
 let password = null, signer = null, rows = [], start = null, months = 12, current = null, made = null, idle = null;
 
 const store = { get: (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
-const amount = (t) => { const n = Number(String(t).replace(/[,\s٬]/g, "")); return Number.isFinite(n) && n >= 0 ? Math.round(n) : null; };
 
 function lock(message = "") {
   password = null; signer = null; rows = []; made = null;
@@ -163,7 +160,7 @@ $("backBtn").onclick = $("againBtn").onclick = () => { made = null; loadList(); 
 function openForm(c) {
   current = c; made = null;
   $("company").value = c?.company ?? ""; $("phone").value = c?.phone ?? ""; $("users").value = c?.users ?? 3; $("paidBy").value = c?.paidBy ?? "Cash";
-  $("price").value = store.get("price", ""); $("userPrice").value = store.get("userPrice", "10,000");
+  $("receipt").checked = true;
   const p = R.renewalPeriod(R.today(), c?.licenceEnd ?? null, c?.months ?? 12);
   start = p.from; setMonths(p.months); $("formMsg").textContent = ""; show("form");
 }
@@ -174,35 +171,35 @@ function setMonths(m) {
 }
 $("monthChips").onclick = (e) => { const b = e.target.closest("[data-m]"); if (b) setMonths(+b.dataset.m); };
 $("todayBtn").onclick = () => { start = R.today(); update(); };
-for (const id of ["users", "price", "userPrice"]) $(id).oninput = update;
+$("users").oninput = $("receipt").onchange = update;
 
 function update() {
   const until = R.addMonths(start, months), renewal = start > R.today();
   $("period").textContent = `Valid ${R.dmy(start)} to ${R.dmy(until)}`;
   $("renewal").hidden = !renewal;
   $("renewalText").textContent = renewal ? `Renewal: the paid period starts on ${R.dmy(start)}, when their current key ends.` : "";
-  const users = parseInt($("users").value, 10), price = amount($("price").value), userPrice = amount($("userPrice").value);
-  if (users > 0 && price != null && userPrice != null && $("price").value.trim()) {
-    const q = R.priceFor(price, userPrice, users, months);
+  const users = parseInt($("users").value, 10);
+  if (users > 0 && $("receipt").checked) {
+    const q = R.priceFor(users, months);
     $("total").textContent = `${q.total.toLocaleString("en-US")} IQD` + (q.discountPct ? `  (${q.discountPct}% off)` : "");
   } else $("total").textContent = "–";
 }
 
 $("makeBtn").onclick = async () => {
   const company = $("company").value.trim(), users = parseInt($("users").value, 10);
-  const price = amount($("price").value), userPrice = amount($("userPrice").value), priced = $("price").value.trim().length > 0;
+  const priced = $("receipt").checked;
   if (!company) { $("formMsg").textContent = "Enter the company name."; return; }
   if (!(users >= 1 && users <= 999)) { $("formMsg").textContent = "Enter the number of users (1 or more)."; return; }
-  if (priced && (price == null || userPrice == null)) { $("formMsg").textContent = "Check the prices, or clear the price to make a key without a receipt."; return; }
+
   if (!signer) { lock("Locked."); return; }
   $("makeBtn").disabled = true; $("formMsg").textContent = "Making the key…";
   try {
     const issued = R.today(), until = R.addMonths(start, months), id = R.newId();
     const key = await R.makeLicence(signer, { company, until, users, issued, id });
     if (!(await R.licenceIsGenuine(key))) throw new Error("The key didn't pass Solar Sizer's check. It was not saved.");
-    const q = priced ? R.priceFor(price, userPrice, users, months) : null;
+    const q = priced ? R.priceFor(users, months) : null;
     const paidBy = $("paidBy").value;
-    if (priced) { store.set("price", $("price").value.trim()); store.set("userPrice", $("userPrice").value.trim()); }
+
     made = { key, company, phone: $("phone").value.trim(), receipt: q ? R.receipt(id, issued, company, until, users, q, paidBy, start) : "" };
     $("keyBox").value = key;
     $("doneText").textContent = `${company}: ${users} user(s), valid until ${R.dmy(until)}` + (q ? ` · ${q.total.toLocaleString("en-US")} IQD` : "") + ".";

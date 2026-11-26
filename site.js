@@ -11,7 +11,7 @@ const SITE = {
   releases: "Hayder-MJ/solarsizer-updates",
   // The version the "new" band talks about. The band in both home pages writes it in its [data-version] spans;
   // a site test checks that they match this, so a new release changes this line and those spans together.
-  version: "2.12.4",
+  version: "2.12.5",
 };
 
 // ---- Page wiring (no need to change below) ----

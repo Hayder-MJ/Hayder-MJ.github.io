@@ -11,7 +11,7 @@ if (job.mode === "sign") {
 } else if (job.mode === "wrong") {
   try { await R.unlockKey(job.locked, job.passphrase); out = { opened: true }; } catch (e) { out = { opened: false, error: e.message }; }
 } else if (job.mode === "receipt") {
-  const q = R.priceFor(job.price, job.userPrice, job.users, job.months);
+  const q = R.priceFor(job.users, job.months);
   out = { q, text: R.receipt(job.id, d(job.date), job.company, d(job.until), job.users, q, job.paidBy, job.from ? d(job.from) : undefined) };
 } else if (job.mode === "period") {
   const p = R.renewalPeriod(d(job.today), job.end ? d(job.end) : null, job.months);

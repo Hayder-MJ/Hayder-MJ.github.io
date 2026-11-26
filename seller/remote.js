@@ -71,14 +71,28 @@ export function renewalPeriod(now, currentEnd, months) {
   return { from, until: addMonths(from, months), months };
 }
 
-/** Seller Tools' price rules: 3 users included, extra users added, 10% off for 6+ months and 17% for 12+ (main price only). */
-export function priceFor(basePerMonth, extraUserPerMonth, users, months) {
+/** The price list, the same as the program's (SolarSizer/Services/LicencePrices.cs): one price per plan for up to 3 users. Change both together. */
+export const PLAN_PRICES = { 12: 1_348_000, 6: 748_000, 3: 450_000, 1: 150_000 };
+export const EXTRA_USER_PER_MONTH = 5_000;
+
+/** The price for up to 3 users: the cheapest mix of plans that covers the months (9 months = 6 + 3, 11 months = 1 year). */
+export function mainFor(months) {
+  const best = [0];
+  for (let m = 1; m <= months; m++)
+    best[m] = Math.min(...Object.entries(PLAN_PRICES).map(([length, price]) => price + best[Math.max(m - Number(length), 0)]));
+  return best[Math.max(months, 0)];
+}
+
+/** Seller Tools' quote: the plans plus 5,000 IQD a month for each user over 3 (never discounted); the discount is what the plans save. */
+export function priceFor(users, months) {
+  const basePerMonth = PLAN_PRICES[1], extraUserPerMonth = EXTRA_USER_PER_MONTH;
   const extra = Math.max(users - INCLUDED_USERS, 0);
   const perMonth = basePerMonth + extra * extraUserPerMonth;
   const subtotal = perMonth * months;
-  const pct = months >= 12 ? 17 : months >= 6 ? 10 : 0;
-  const discount = Math.floor((basePerMonth * months * pct + 50) / 100);
-  return { basePerMonth, extraUserPerMonth, extraUsers: extra, perMonth, months, subtotal, discountPct: pct, discount, total: subtotal - discount };
+  const total = mainFor(months) + extra * extraUserPerMonth * months;
+  const discount = subtotal - total;
+  const discountPct = Math.floor((basePerMonth * months - mainFor(months)) * 100 / (basePerMonth * months));
+  return { basePerMonth, extraUserPerMonth, extraUsers: extra, perMonth, months, subtotal, discountPct, discount, total };
 }
 
 const n0 = (n) => n.toLocaleString("en-US");
@@ -89,12 +103,12 @@ export function receipt(id, date, company, until, users, q, paidBy, from) {
   const paidAr = paidBy === "Qi Card" ? "بطاقة كي كارد (Qi Card)" : "نقداً";
   const ar = ["وصل استلام: Solar Sizer", `رقم الوصل: ${id}`, `التاريخ: ${dmy(date)}`, `الشركة: ${company}`,
     `الاشتراك: ${q.months} شهر، من ${dmy(start)} إلى ${dmy(until)}`, `عدد المستخدمين: ${users}`];
-  if (q.discountPct > 0) { ar.push(`المجموع: ${n0(q.subtotal)} دينار`, `المدفوع بعد الخصم: ${n0(q.total)} دينار`); }
+  if (q.discount > 0) { ar.push(`المجموع: ${n0(q.subtotal)} دينار`, `المدفوع بعد الخصم: ${n0(q.total)} دينار`); }
   else ar.push(`المجموع المدفوع: ${n0(q.total)} دينار`);
   ar.push(`طريقة الدفع: ${paidAr}`, "شكراً لكم.");
   const en = ["Receipt: Solar Sizer", `Receipt no.: ${id}`, `Date: ${dmy(date)}`, `Company: ${company}`,
     `Subscription: ${q.months} month(s), ${dmy(start)} to ${dmy(until)}`, `Users: ${users}`];
-  if (q.discountPct > 0) { en.push(`Subtotal: ${n0(q.subtotal)} IQD`, `After discount, total paid: ${n0(q.total)} IQD`); }
+  if (q.discount > 0) { en.push(`Subtotal: ${n0(q.subtotal)} IQD`, `After discount, total paid: ${n0(q.total)} IQD`); }
   else en.push(`Total paid: ${n0(q.total)} IQD`);
   en.push(`Paid by: ${paidBy}`, "Thank you.");
   return ar.join("\n") + "\n\n" + en.join("\n") + `\n\nWhatsApp: ${SELLER_WHATSAPP}\n`;
