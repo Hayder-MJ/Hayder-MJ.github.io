@@ -74,6 +74,9 @@ export function renewalPeriod(now, currentEnd, months) {
 /** The price list, the same as the program's (SolarSizer/Services/LicencePrices.cs): one price per plan for up to 3 users. Change both together. */
 export const PLAN_PRICES = { 12: 1_348_000, 6: 748_000, 3: 450_000, 1: 150_000 };
 export const EXTRA_USER_PER_MONTH = 5_000;
+/** A salesman code takes 10% off the total (LicencePrices.CodeDiscount), in whole IQD rounded half away from zero. */
+export const CODE_DISCOUNT_PERCENT = 10;
+export const codeDiscount = (total) => Math.round(total * CODE_DISCOUNT_PERCENT / 100);
 
 /** The price for up to 3 users: the cheapest mix of plans that covers the months (9 months = 6 + 3, 11 months = 1 year). */
 export function mainFor(months) {
@@ -83,16 +86,19 @@ export function mainFor(months) {
   return best[Math.max(months, 0)];
 }
 
-/** Seller Tools' quote: the plans plus 5,000 IQD a month for each user over 3 (never discounted); the discount is what the plans save. */
-export function priceFor(users, months) {
+/** Seller Tools' quote: the plans plus 5,000 IQD a month for each user over 3 (never discounted); the discount is what the plans save.
+ *  With a salesman code, 10% more comes off the total (codeDiscount). */
+export function priceFor(users, months, code = "") {
   const basePerMonth = PLAN_PRICES[1], extraUserPerMonth = EXTRA_USER_PER_MONTH;
   const extra = Math.max(users - INCLUDED_USERS, 0);
   const perMonth = basePerMonth + extra * extraUserPerMonth;
   const subtotal = perMonth * months;
-  const total = mainFor(months) + extra * extraUserPerMonth * months;
+  const listTotal = mainFor(months) + extra * extraUserPerMonth * months;
+  const codeOff = code ? codeDiscount(listTotal) : 0;
+  const total = listTotal - codeOff;
   const discount = subtotal - total;
   const discountPct = Math.floor((basePerMonth * months - mainFor(months)) * 100 / (basePerMonth * months));
-  return { basePerMonth, extraUserPerMonth, extraUsers: extra, perMonth, months, subtotal, discountPct, discount, total };
+  return { basePerMonth, extraUserPerMonth, extraUsers: extra, perMonth, months, subtotal, discountPct, discount, total, code, codeDiscount: codeOff };
 }
 
 const n0 = (n) => n.toLocaleString("en-US");
@@ -103,11 +109,13 @@ export function receipt(id, date, company, until, users, q, paidBy, from) {
   const paidAr = paidBy === "Qi Card" ? "بطاقة كي كارد (Qi Card)" : "نقداً";
   const ar = ["وصل استلام: Solar Sizer", `رقم الوصل: ${id}`, `التاريخ: ${dmy(date)}`, `الشركة: ${company}`,
     `الاشتراك: ${q.months} شهر، من ${dmy(start)} إلى ${dmy(until)}`, `عدد المستخدمين: ${users}`];
+  if (q.codeDiscount > 0) ar.push(`كود المندوب ${q.code}: خصم 10% (${n0(q.codeDiscount)} دينار)`);
   if (q.discount > 0) { ar.push(`المجموع: ${n0(q.subtotal)} دينار`, `المدفوع بعد الخصم: ${n0(q.total)} دينار`); }
   else ar.push(`المجموع المدفوع: ${n0(q.total)} دينار`);
   ar.push(`طريقة الدفع: ${paidAr}`, "شكراً لكم.");
   const en = ["Receipt: Solar Sizer", `Receipt no.: ${id}`, `Date: ${dmy(date)}`, `Company: ${company}`,
     `Subscription: ${q.months} month(s), ${dmy(start)} to ${dmy(until)}`, `Users: ${users}`];
+  if (q.codeDiscount > 0) en.push(`Salesman code ${q.code}: 10% off (${n0(q.codeDiscount)} IQD)`);
   if (q.discount > 0) { en.push(`Subtotal: ${n0(q.subtotal)} IQD`, `After discount, total paid: ${n0(q.total)} IQD`); }
   else en.push(`Total paid: ${n0(q.total)} IQD`);
   en.push(`Paid by: ${paidBy}`, "Thank you.");
@@ -156,6 +164,13 @@ export const asked = (request, field) => {
 };
 export const askedNumber = (request, field) => { const n = parseInt(asked(request, field), 10); return n > 0 && n < 1000 ? n : null; };
 
+/** A salesman code as 6 digits ("123 456" -> "123456"), or "" when it isn't one. */
+export const sixDigits = (text) => {
+  const d = String(text ?? "").replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x660))
+                              .replace(/[\u06F0-\u06F9]/g, (c) => String(c.charCodeAt(0) - 0x6F0)).replace(/\D/g, "");
+  return d.length === 6 ? d : "";
+};
+
 /** One computer in the list, with what Seller Tools shows for it. */
 export function customer(row, now = today()) {
   const trialStart = parseDay(row.trial_start), licenceEnd = parseDay(row.licence_until);
@@ -172,6 +187,8 @@ export function customer(row, now = today()) {
     phone: asked(row.request, "phone") || row.phone || "", status, wantsLicence, daysLeft, licenceEnd, trialEnd,
     users: askedNumber(row.request, "users") ?? row.licence_users ?? 3, months: askedNumber(row.request, "months") ?? 12,
     paidBy: asked(row.request, "payment") === "Qi Card" ? "Qi Card" : "Cash", note: asked(row.request, "note"),
+    code: sixDigits(asked(row.request, "code")),
+    requestAt,
     lastSeen: row.last_seen ? new Date(row.last_seen) : null,
   };
 }

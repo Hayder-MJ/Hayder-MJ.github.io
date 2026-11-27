@@ -98,6 +98,8 @@ import * as R from "./remote.js";
 const $ = (id) => document.getElementById(id);
 const show = (id) => { for (const s of ["login", "list", "form", "done"]) $(s).hidden = s !== id; $("lockBtn").hidden = id === "login"; };
 let password = null, signer = null, rows = [], start = null, months = 12, current = null, made = null, idle = null;
+// The customer's salesman code, as the list checked it: { code, ok, problem, salesman } or null.
+let codeCheck = null;
 
 const store = { get: (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
 
@@ -144,7 +146,7 @@ async function loadList() {
         ${c.wantsLicence ? '<span class="tag">🔔 Wants a key</span>' : `<span class="muted">${escapeHtml(c.status)}${c.daysLeft != null ? ` · ${c.daysLeft} day(s) left` : ""}</span>`}
         <b>${escapeHtml(c.company || "(no name)")}</b>
         <span class="muted ltr">${escapeHtml(c.phone)}</span>
-        ${c.wantsLicence ? `<span class="muted"> · ${c.users} user(s), ${c.months} month(s), ${escapeHtml(c.paidBy)}${c.note ? ": " + escapeHtml(c.note) : ""}</span>` : ""}
+        ${c.wantsLicence ? `<span class="muted"> · ${c.users} user(s), ${c.months} month(s), ${escapeHtml(c.paidBy)}${c.code ? ", salesman code " + escapeHtml(c.code) : ""}${c.note ? ": " + escapeHtml(c.note) : ""}</span>` : ""}
       </button>`).join("") || '<p class="muted">No computers in the list yet.</p>';
     $("listMsg").textContent = `${rows.length} computer(s) · updated ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
   } catch (e) {
@@ -162,7 +164,28 @@ function openForm(c) {
   $("company").value = c?.company ?? ""; $("phone").value = c?.phone ?? ""; $("users").value = c?.users ?? 3; $("paidBy").value = c?.paidBy ?? "Cash";
   $("receipt").checked = true;
   const p = R.renewalPeriod(R.today(), c?.licenceEnd ?? null, c?.months ?? 12);
-  start = p.from; setMonths(p.months); $("formMsg").textContent = ""; show("form");
+  codeCheck = null;
+  start = p.from; setMonths(p.months);
+  $("formMsg").textContent = "";
+  show("form");
+  if (c?.code) checkCode(c);
+}
+// A salesman code in the request: checked on the list for the day they asked. Good: 10% off and the salesman earns 10%.
+async function checkCode(c) {
+  $("formMsg").textContent = `Checking salesman code ${c.code}…`;
+  try {
+    const r = await R.rpc("seller_code_check", { p_password: password, p_code: c.code, p_asked: R.isoDay(c.requestAt ?? R.today()),
+                                                 p_licence: null, p_install: c.id ?? null });
+    if (current !== c) return;
+    codeCheck = { code: c.code, ok: !!r.ok, problem: r.problem ?? "", salesman: r.salesman ?? "" };
+  } catch (e) {
+    if (current !== c) return;
+    codeCheck = { code: c.code, ok: false, problem: `It can't be checked right now (${e.message}).`, salesman: "" };
+  }
+  $("formMsg").textContent = codeCheck.ok
+    ? `✓ Salesman code ${c.code} (${codeCheck.salesman}): 10% off, and ${codeCheck.salesman} earns 10% of what they pay.`
+    : `✗ Salesman code ${c.code}: ${codeCheck.problem} The key will be at the list price.`;
+  update();
 }
 function setMonths(m) {
   months = m;
@@ -180,8 +203,9 @@ function update() {
   $("renewalText").textContent = renewal ? `Renewal: the paid period starts on ${R.dmy(start)}, when their current key ends.` : "";
   const users = parseInt($("users").value, 10);
   if (users > 0 && $("receipt").checked) {
-    const q = R.priceFor(users, months);
-    $("total").textContent = `${q.total.toLocaleString("en-US")} IQD` + (q.discountPct ? `  (${q.discountPct}% off)` : "");
+    const q = R.priceFor(users, months, codeCheck?.ok ? codeCheck.code : "");
+    $("total").textContent = `${q.total.toLocaleString("en-US")} IQD` + (q.discountPct ? `  (${q.discountPct}% off)` : "")
+      + (q.codeDiscount ? `  + code: ${q.codeDiscount.toLocaleString("en-US")} off` : "");
   } else $("total").textContent = "–";
 }
 
@@ -192,17 +216,35 @@ $("makeBtn").onclick = async () => {
   if (!(users >= 1 && users <= 999)) { $("formMsg").textContent = "Enter the number of users (1 or more)."; return; }
 
   if (!signer) { lock("Locked."); return; }
+  const code = codeCheck?.ok ? codeCheck.code : "";
+  if (code && !priced) { $("formMsg").textContent = "A sale with a salesman code needs a receipt: tick \"Make a receipt\"."; return; }
   $("makeBtn").disabled = true; $("formMsg").textContent = "Making the key…";
+  const issued = R.today(), until = R.addMonths(start, months), id = R.newId();
+  const q = priced ? R.priceFor(users, months, code) : null;
+  let codeNote = "";
+  // The code is used up on the list first, in one step there, so it can never be used twice (here, on a PC, or on another phone).
+  if (code) {
+    try {
+      const r = await R.rpc("seller_sale_record", { p_password: password, p_info: {
+        LicenceId: id, Date: R.isoDay(issued), Company: company, Total: q.total, Code: code,
+        Asked: R.isoDay(current?.requestAt ?? issued), Install: current?.id ?? null } });
+      codeNote = ` Code ${code}: ${r.Sale?.Salesman ?? ""} earns ${(r.Sale?.Commission ?? 0).toLocaleString("en-US")} IQD.`;
+    } catch (e) {
+      $("formMsg").innerHTML = `<span class="bad">${escapeHtml(e.message)} No key was made.</span>`;
+      // The list may have used the code even if its answer was lost: give it back for this licence (nothing if it wasn't).
+      try { await R.rpc("seller_sale_remove", { p_password: password, p_licence: id }); } catch { /* shown above */ }
+      $("makeBtn").disabled = false;
+      return;
+    }
+  }
   try {
-    const issued = R.today(), until = R.addMonths(start, months), id = R.newId();
     const key = await R.makeLicence(signer, { company, until, users, issued, id });
     if (!(await R.licenceIsGenuine(key))) throw new Error("The key didn't pass Solar Sizer's check. It was not saved.");
-    const q = priced ? R.priceFor(users, months) : null;
     const paidBy = $("paidBy").value;
 
     made = { key, company, phone: $("phone").value.trim(), receipt: q ? R.receipt(id, issued, company, until, users, q, paidBy, start) : "" };
     $("keyBox").value = key;
-    $("doneText").textContent = `${company}: ${users} user(s), valid until ${R.dmy(until)}` + (q ? ` · ${q.total.toLocaleString("en-US")} IQD` : "") + ".";
+    $("doneText").textContent = `${company}: ${users} user(s), valid until ${R.dmy(until)}` + (q ? ` · ${q.total.toLocaleString("en-US")} IQD` : "") + "." + codeNote;
     show("done");
     try {
       await R.rpc("seller_licence_made", { p_password: password, p_info: {
@@ -210,7 +252,11 @@ $("makeBtn").onclick = async () => {
         from: "phone", start: R.isoDay(start), install_id: current?.id ?? null } });
       $("doneText").textContent += " Added to your customer list.";
     } catch (e) { $("doneText").textContent += ` Not added to the customer list (${e.message}): note it yourself.`; }
-  } catch (e) { $("formMsg").innerHTML = `<span class="bad">${escapeHtml(e.message)}</span>`; }
+  } catch (e) {
+    $("formMsg").innerHTML = `<span class="bad">${escapeHtml(e.message)}</span>`;
+    // The code was used for a key that wasn't made: give it back.
+    if (code) { try { await R.rpc("seller_sale_remove", { p_password: password, p_licence: id }); } catch { $("formMsg").innerHTML += ` Code ${code} stays used: remove the sale in Seller Tools.`; } }
+  }
   finally { $("makeBtn").disabled = false; }
 };
 
